@@ -50,78 +50,37 @@
 			stage.addEventListener(MouseEvent.MOUSE_MOVE, mouseMoved);
 			stage.addEventListener(MouseEvent.MOUSE_UP, mouseReleased);
 			
-			mousePositionOnClick = new Point(mouseX, mouseY);
+			saveCurrentMousePosition();
 			level.visible = false;
 			shouldRecordMouse = true;
 		}
 		
 		private function mouseMoved(e:MouseEvent):void {
 			arrow.moveBy(movementDistance());
-			// saving current mouse position;
-			mousePositionOnClick.x = mouseX;
-			mousePositionOnClick.y = mouseY;
+			saveCurrentMousePosition();
 			
 			var radarPrecision:Number = 20;
 			var collisionDistance:Number = 50;
 			collisionDistance = closestCollision(radarPrecision, RAYCAST_STEP_SIZE, collisionDistance);
-			var rayAngle:Number = 2 * Math.PI / radarPrecision * radarPrecision;
-			
 			
 			radar.size = collisionDistance;
 			
-			if (collisionDistance < 1) {
-				loseGame();
-			}
+			loseGameIfAppropriate(collisionDistance);
 			
-			// checking the collision between the arrow and the light, if we still did not pick up the light
-			if (!hasCollectedLight) {
+			if (!hasCollectedLight)
 				collectLightIfAppropriate();
-			} else {
-				// do you remember the radar? Things are quite similar for the light, we only want more precision
-				lightCanvas.graphics.clear();
-				lightCanvas.graphics.lineStyle(0, 0xffffff, 0);
-				var mtx:Matrix = new Matrix();
-				mtx.createGradientBox(232, 232, 0, arrow.x - 116, arrow.y - 116);
-				// we are drawing a gradient this time;
-				lightCanvas.graphics.beginGradientFill(GradientType.RADIAL, [0xffffff, 0xffffff], [0.5, 0], [0, 255], mtx);
-				radarPrecision = 60;
-				for (var i:uint = 0; i <= radarPrecision; i++) {
-					rayAngle = 2 * Math.PI / radarPrecision * i;
-					for (var j:uint = 16; j <= 116; j += RAYCAST_STEP_SIZE) {
-						if (level.hitTestPoint(arrow.x + j * Math.cos(rayAngle), arrow.y + j * Math.sin(rayAngle), true)) {
-							break;
-						}
-					}
-					if (i == 0) {
-						// moving the graphic pen if it's the first point we find
-						lightCanvas.graphics.moveTo(arrow.x + j * Math.cos(rayAngle), arrow.y + j * Math.sin(rayAngle));
-					} else {
-						// or drawing if it's not the first point we find
-						lightCanvas.graphics.lineTo(arrow.x + j * Math.cos(rayAngle), arrow.y + j * Math.sin(rayAngle));
-					}
-				}
-				lightCanvas.graphics.endFill();
-			}
-			// checking the collision with the goal;
-			var arrowToGoalX:Number = arrow.x - goal.x;
-			var arrowToGoalY:Number = arrow.y - goal.y;
-			// 1296 = (arrow.radius + 20 (goal radius))^2
-			if (arrowToGoalX * arrowToGoalX + arrowToGoalY * arrowToGoalY < (arrow.radius + 20) * (arrow.radius + 20)) { // 20 = goal radius
-				// great! you won!
-				winGame();
-			}
+			else
+				drawLight();
+			
+			winGameIfAppropriate();
 		}
 		
-		private function collectLightIfAppropriate():void {
-			var arrowToLightX:Number = arrow.x - light.x;
-			var arrowToLightY:Number = arrow.y - light.y;
-			if (arrowToLightX * arrowToLightX + arrowToLightY * arrowToLightY < (arrow.radius + 10) * (arrow.radius + 10)) //10 = light radius
-				pickupLight();
+		private function movementDistance():Point {
+			return new Point(mouseX - mousePositionOnClick.x, mouseY - mousePositionOnClick.y);
 		}
 		
-		private function pickupLight():void {
-			hasCollectedLight = true;
-			removeChild(light);
+		private function saveCurrentMousePosition():void {
+			mousePositionOnClick = new Point(mouseX, mouseY);
 		}
 		
 		private function closestCollision(radarPrecision:Number, raycastStepSize:Number, collisionDistance:Number):Number {
@@ -131,6 +90,62 @@
 				returnMe = Math.min(returnMe, findNearestSurface(raycastStepSize, collisionDistance, rayAngle));
 			}
 			return returnMe;
+		}
+		
+		private function loseGameIfAppropriate(collisionDistance:Number):void {
+			if (collisionDistance < 1)
+				loseGame();
+		}
+		
+		private function drawLight():void {
+			lightCanvas.graphics.clear();
+			lightCanvas.graphics.lineStyle(0, 0xffffff, 0);
+			var mtx:Matrix = new Matrix();
+			mtx.createGradientBox(232, 232, 0, arrow.x - 116, arrow.y - 116);
+			// we are drawing a gradient this time;
+			lightCanvas.graphics.beginGradientFill(GradientType.RADIAL, [0xffffff, 0xffffff], [0.5, 0], [0, 255], mtx);
+			var radarPrecision:Number = 60;
+			for (var i:uint = 0; i <= radarPrecision; i++) {
+				var rayAngle:Number = 2 * Math.PI / radarPrecision * i;
+				for (var j:uint = 16; j <= 116; j += RAYCAST_STEP_SIZE) {
+					if (level.hitTestPoint(arrow.x + j * Math.cos(rayAngle), arrow.y + j * Math.sin(rayAngle), true)) {
+						break;
+					}
+				}
+				if (i == 0) {
+					moveGraphicsPen(rayAngle, j);
+				} else {
+					drawGraphicsPen(rayAngle, j);
+				}
+			}
+			lightCanvas.graphics.endFill();
+		}
+		
+		private function moveGraphicsPen(rayAngle:Number, j:Number):void {
+			lightCanvas.graphics.moveTo(arrow.x + j * Math.cos(rayAngle), arrow.y + j * Math.sin(rayAngle));
+		}
+		
+		private function drawGraphicsPen(rayAngle:Number, j:Number):void {
+			lightCanvas.graphics.lineTo(arrow.x + j * Math.cos(rayAngle), arrow.y + j * Math.sin(rayAngle));
+		}
+		
+		private function winGameIfAppropriate():void {
+			var arrowToGoalX:Number = arrow.x - goal.x;
+			var arrowToGoalY:Number = arrow.y - goal.y;
+			if (squareOf(arrowToGoalX) + squareOf(arrowToGoalY) < squareOf(arrow.radius + 20)) // 20 = goal radius
+				winGame();
+		}
+		
+		private function collectLightIfAppropriate():void {
+			var arrowToLightX:Number = arrow.x - light.x;
+			var arrowToLightY:Number = arrow.y - light.y;
+			if (squareOf(arrowToLightX) + squareOf(arrowToLightY) < squareOf(arrow.radius + 10)) //10 = light radius
+				pickupLight();
+		}
+		
+		private function pickupLight():void {
+			hasCollectedLight = true;
+			removeChild(light);
 		}
 		
 		// should be on arrow?
@@ -151,10 +166,6 @@
 			flickerLight();
 			recordMousePosition();
 			playMousePosition();
-		}
-		
-		private function movementDistance():Point {
-			return new Point(mouseX - mousePositionOnClick.x, mouseY - mousePositionOnClick.y);
 		}
 		
 		private function flickerLight():void {
@@ -192,6 +203,10 @@
 			radar.removeChild();
 			shouldRecordMouse = false;
 			shouldPlayMouse = true;
+		}
+		
+		private function squareOf(input:Number):Number {
+			return input * input;
 		}
 	}
 }
