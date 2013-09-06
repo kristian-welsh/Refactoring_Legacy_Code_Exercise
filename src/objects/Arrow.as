@@ -16,5 +16,16 @@ package src.objects {
 			graphics.x = newPosition.x;
 			graphics.y = newPosition.y;
 		}
+		
+		public function findNearestPointOnLevel(raycastStepSize:Number, collisionDistance:Number, rayAngle:Number, level:Level):Number {
+			for (var j:Number = radius; j <= collisionDistance + radius; j += raycastStepSize)
+				if (raycastCollidingWithLevel(j, rayAngle, level))
+					return j - radius;
+			return Number.MAX_VALUE;
+		}
+		
+		public function raycastCollidingWithLevel(rayDistance:Number, rayAngle:Number, level:Level):Boolean {
+			return level.hitTestPoint(x + rayDistance * Math.cos(rayAngle), y + rayDistance * Math.sin(rayAngle));
+		}
 	}
 }

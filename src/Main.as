@@ -66,7 +66,7 @@
 			var returnMe:Number = maxDistanceFromCollision;
 			for (var i:Number = 0; i <= raycastAngleStepSize; i++) {
 				var rayAngle:Number = 2 * Math.PI / raycastAngleStepSize * i;
-				returnMe = Math.min(returnMe, findNearestSurface(raycastDistanceStepSize, maxDistanceFromCollision, rayAngle));
+				returnMe = Math.min(returnMe, arrow.findNearestPointOnLevel(raycastDistanceStepSize, maxDistanceFromCollision, rayAngle, level));
 			}
 			return returnMe;
 		}
@@ -88,7 +88,7 @@
 				var rayAngle:Number = 2 * Math.PI / radarPrecision * i;
 				
 				for (var j:uint = 16; j <= 116; j += RAYCAST_DISTANCE_STEP_SIZE)
-					if (playerRaycastCollidingWithLevel(j, rayAngle))
+					if (arrow.raycastCollidingWithLevel(j, rayAngle, level))
 						break;
 				
 				if (i == 0)
@@ -120,18 +120,6 @@
 		private function pickupLight():void {
 			hasCollectedLight = true;
 			light.removeChild();
-		}
-		
-		// should be on arrow?
-		private function findNearestSurface(raycastStepSize:Number, collisionDistance:Number, rayAngle:Number):Number {
-			for (var j:Number = arrow.radius; j <= collisionDistance + arrow.radius; j += raycastStepSize)
-				if (playerRaycastCollidingWithLevel(j, rayAngle))
-					return j - arrow.radius;
-			return Number.MAX_VALUE;
-		}
-		
-		private function playerRaycastCollidingWithLevel(rayDistance:Number, rayAngle:Number):Boolean {
-			return level.hitTestPoint(arrow.x + rayDistance * Math.cos(rayAngle), arrow.y + rayDistance * Math.sin(rayAngle));
 		}
 		
 		private function mouseReleased(e:MouseEvent):void {
