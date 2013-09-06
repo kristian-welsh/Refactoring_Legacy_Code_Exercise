@@ -4,6 +4,7 @@ package src.objects{
 	/** @author Kristian Welsh */
 	public class Radar {
 		private var graphics:MovieClip;
+		
 		public function Radar(container:DisplayObjectContainer):void {
 			graphics = new RadarGraphics();
 			container.addChild(graphics);
