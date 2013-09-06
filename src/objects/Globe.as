@@ -23,7 +23,7 @@ package src.objects {
 		}
 		
 		public function get radius():Number {
-			return graphics.width/2;
+			return graphics.width / 2;
 		}
 		
 		private function pythagDistanceTo(target:IPositioned):Number {
@@ -34,8 +34,8 @@ package src.objects {
 			return input * input;
 		}
 		
-		public function isTouchingGlobe(object:IGlobe):Boolean {
-			return pythagDistanceTo(object) < squareOf(radius + object.radius)
+		public function isTouching(object:IGlobe):Boolean {
+			return (pythagDistanceTo(object) < squareOf(radius + object.radius));
 		}
 	}
 }

@@ -1,0 +1,2 @@
+This is a project i spent about a day on to practice refactoring legacy code, i wanted to try it because i havent had much experiance working with legacy code in the past, so i wanted to see how  i would fare (fairly well so far).
+The original code was downloaded freely from http://www.emanueleferonato.com/2013/09/05/create-a-flash-game-like-the-impossible-line-final-prototype/
