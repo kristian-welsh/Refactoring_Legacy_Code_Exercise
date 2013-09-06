@@ -1,4 +1,4 @@
-package {
+package src.objects{
 	import flash.display.*;
 	
 	/** @author Kristian Welsh */

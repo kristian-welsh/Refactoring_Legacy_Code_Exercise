@@ -1,19 +1,18 @@
-﻿package {
-	import flash.display.GradientType;
-	import flash.display.Sprite;
-	import flash.events.Event;
-	import flash.events.MouseEvent;
-	import flash.geom.Matrix;
-	import flash.geom.Point;
+﻿package src {
+	import src.objects.*;
+	import flash.display.*;
+	import flash.events.*;
+	import flash.geom.*;
+	
 	public class Main extends Sprite {
-		private static const RAYCAST_STEP_SIZE:Number = 1;
+		private static const RAYCAST_DISTANCE_STEP_SIZE:Number = 1;
 		
 		private var arrow:Arrow;
 		private var radar:Radar;
-		private var level:Level = new Level();
-		private var light:Light = new Light();
-		private var goal:Goal = new Goal();
-		// lightCanvas is the sprite where we'll display the light
+		private var level:Level;
+		private var light:Light;
+		private var goal:Goal;
+		// displays the light
 		private var lightCanvas:Sprite = new Sprite();
 		
 		private var mousePositionOnClick:Point;
@@ -26,20 +25,11 @@
 		
 		public function Main() {
 			arrow = new Arrow(this)
-			
-			addChild(level);
-			
+			level = new Level(this);
 			radar = new Radar(this);
-			
-			addChild(light);
-			light.x = 50;
-			light.y = 200;
-			
+			light = new Light(this);
 			addChild(lightCanvas);
-			
-			addChild(goal);
-			goal.x = 600;
-			goal.y = 240;
+			goal = new Goal(this);
 			
 			stage.addEventListener(MouseEvent.MOUSE_DOWN, startDrawing);
 			addEventListener(Event.ENTER_FRAME, update);
@@ -51,28 +41,17 @@
 			stage.addEventListener(MouseEvent.MOUSE_UP, mouseReleased);
 			
 			saveCurrentMousePosition();
-			level.visible = false;
+			level.hide();
 			shouldRecordMouse = true;
 		}
 		
 		private function mouseMoved(e:MouseEvent):void {
 			arrow.moveBy(movementDistance());
 			saveCurrentMousePosition();
-			
-			var radarPrecision:Number = 20;
-			var collisionDistance:Number = 50;
-			collisionDistance = closestCollision(radarPrecision, RAYCAST_STEP_SIZE, collisionDistance);
-			
-			radar.size = collisionDistance;
-			
-			loseGameIfAppropriate(collisionDistance);
-			
-			if (!hasCollectedLight)
-				collectLightIfAppropriate();
-			else
-				drawLight();
-			
 			winGameIfAppropriate();
+			var distanceFromCollision:Number = distanceFromClosestCollision(20, RAYCAST_DISTANCE_STEP_SIZE, 50);
+			loseGameIfAppropriate(distanceFromCollision);
+			renderFrame(distanceFromCollision);
 		}
 		
 		private function movementDistance():Point {
@@ -83,11 +62,11 @@
 			mousePositionOnClick = new Point(mouseX, mouseY);
 		}
 		
-		private function closestCollision(radarPrecision:Number, raycastStepSize:Number, collisionDistance:Number):Number {
-			var returnMe:Number = collisionDistance;
-			for (var i:Number = 0; i <= radarPrecision; i++) {
-				var rayAngle:Number = 2 * Math.PI / radarPrecision * i;
-				returnMe = Math.min(returnMe, findNearestSurface(raycastStepSize, collisionDistance, rayAngle));
+		private function distanceFromClosestCollision(raycastAngleStepSize:Number, raycastDistanceStepSize:Number, maxDistanceFromCollision:Number):Number {
+			var returnMe:Number = maxDistanceFromCollision;
+			for (var i:Number = 0; i <= raycastAngleStepSize; i++) {
+				var rayAngle:Number = 2 * Math.PI / raycastAngleStepSize * i;
+				returnMe = Math.min(returnMe, findNearestSurface(raycastDistanceStepSize, maxDistanceFromCollision, rayAngle));
 			}
 			return returnMe;
 		}
@@ -107,53 +86,52 @@
 			var radarPrecision:Number = 60;
 			for (var i:uint = 0; i <= radarPrecision; i++) {
 				var rayAngle:Number = 2 * Math.PI / radarPrecision * i;
-				for (var j:uint = 16; j <= 116; j += RAYCAST_STEP_SIZE) {
-					if (level.hitTestPoint(arrow.x + j * Math.cos(rayAngle), arrow.y + j * Math.sin(rayAngle), true)) {
+				
+				for (var j:uint = 16; j <= 116; j += RAYCAST_DISTANCE_STEP_SIZE)
+					if (playerRaycastCollidingWithLevel(j, rayAngle))
 						break;
-					}
-				}
-				if (i == 0) {
+				
+				if (i == 0)
 					moveGraphicsPen(rayAngle, j);
-				} else {
+				else
 					drawGraphicsPen(rayAngle, j);
-				}
 			}
 			lightCanvas.graphics.endFill();
 		}
 		
-		private function moveGraphicsPen(rayAngle:Number, j:Number):void {
-			lightCanvas.graphics.moveTo(arrow.x + j * Math.cos(rayAngle), arrow.y + j * Math.sin(rayAngle));
+		private function moveGraphicsPen(rayAngle:Number, rayDistance:Number):void {
+			lightCanvas.graphics.moveTo(arrow.x + rayDistance * Math.cos(rayAngle), arrow.y + rayDistance * Math.sin(rayAngle));
 		}
 		
-		private function drawGraphicsPen(rayAngle:Number, j:Number):void {
-			lightCanvas.graphics.lineTo(arrow.x + j * Math.cos(rayAngle), arrow.y + j * Math.sin(rayAngle));
+		private function drawGraphicsPen(rayAngle:Number, rayDistance:Number):void {
+			lightCanvas.graphics.lineTo(arrow.x + rayDistance * Math.cos(rayAngle), arrow.y + rayDistance * Math.sin(rayAngle));
 		}
 		
 		private function winGameIfAppropriate():void {
-			var arrowToGoalX:Number = arrow.x - goal.x;
-			var arrowToGoalY:Number = arrow.y - goal.y;
-			if (squareOf(arrowToGoalX) + squareOf(arrowToGoalY) < squareOf(arrow.radius + 20)) // 20 = goal radius
+			if (arrow.isTouchingGlobe(goal))
 				winGame();
 		}
 		
-		private function collectLightIfAppropriate():void {
-			var arrowToLightX:Number = arrow.x - light.x;
-			var arrowToLightY:Number = arrow.y - light.y;
-			if (squareOf(arrowToLightX) + squareOf(arrowToLightY) < squareOf(arrow.radius + 10)) //10 = light radius
+		private function collectLightIfTouchingIt():void {
+			if (arrow.isTouchingGlobe(light))
 				pickupLight();
 		}
 		
 		private function pickupLight():void {
 			hasCollectedLight = true;
-			removeChild(light);
+			light.removeChild();
 		}
 		
 		// should be on arrow?
 		private function findNearestSurface(raycastStepSize:Number, collisionDistance:Number, rayAngle:Number):Number {
 			for (var j:Number = arrow.radius; j <= collisionDistance + arrow.radius; j += raycastStepSize)
-				if (level.hitTestPoint(arrow.x + j * Math.cos(rayAngle), arrow.y + j * Math.sin(rayAngle), true))
-					return j - arrow.radius
+				if (playerRaycastCollidingWithLevel(j, rayAngle))
+					return j - arrow.radius;
 			return Number.MAX_VALUE;
+		}
+		
+		private function playerRaycastCollidingWithLevel(rayDistance:Number, rayAngle:Number):Boolean {
+			return level.hitTestPoint(arrow.x + rayDistance * Math.cos(rayAngle), arrow.y + rayDistance * Math.sin(rayAngle));
 		}
 		
 		private function mouseReleased(e:MouseEvent):void {
@@ -196,7 +174,7 @@
 		
 		private function endGame():void {
 			mouseMovementRecord.push(new Point(arrow.x, arrow.y));
-			level.visible = true;
+			level.show()
 			stage.removeEventListener(MouseEvent.MOUSE_MOVE, mouseMoved);
 			stage.removeEventListener(MouseEvent.MOUSE_UP, mouseReleased);
 			removeChild(lightCanvas);
@@ -207,6 +185,14 @@
 		
 		private function squareOf(input:Number):Number {
 			return input * input;
+		}
+		
+		private function renderFrame(radarSize:Number):void {
+			radar.size = radarSize;
+			if (!hasCollectedLight)
+				collectLightIfTouchingIt();
+			else
+				drawLight();
 		}
 	}
 }
